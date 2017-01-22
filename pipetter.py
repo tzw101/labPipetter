@@ -293,88 +293,97 @@ class Pipette():
         if volume == None:
             volume = self.max_volume
         self.driver.coordinate('relative',enqueue)
-        if location:
-            self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.depth})
-        else:
-            self.driver.move({'Z':2})       #default to 2mm. check whether this should be open as parameters.
+        self.move_to(location,enqueue)
+        self.move_updown('down',location,enqueue)       #default to 2mm. check whether this should be open as parameters.
+
         extrusion = self.calculate_extrusion(volume)
-        self.driver.extrude(extrusion)
-        self.driver.delay(0.5)
-        self.driver.extrude(-extrusion)
+        self.driver.extrude(extrusion,enqueue)
+        self.driver.delay(0.5,enqueue)
+        self.driver.extrude(-extrusion,enqueue)
         #moving back up
-        if location:
-            self.driver.move({'Z':-location.depth})
-        else:
-            self.driver.move({'Z':-2})
+        self.move_updown('up',location,enqueue)
 
     def dispense(self,volume = None,location = None,rate = 1.0,enqueue = True):
         if volume == None:
             volume = self.max_volume
         self.driver.coordinate('relative',enqueue)
-        if location:
-            self.driver.move(location.coordinate,enqueue)
+        self.move_to(location,enqueue)
+        self.move_updown('down',location,enqueue)
+
         extrusion = self.calculate_extrusion(volume)
-        self.driver.extrude(-extrusion)
+        self.driver.extrude(-extrusion,enqueue)
+
+        self.move_updown('up',location,enqueue)
 
     def mix(self,repetitions = 3, volume = None, location = None, rate = 1.0,enqueue = True ):
         '''Mix volume of liquid'''
         if volume == None:
             volume = self.max_volume
         self.driver.coordinate('relative',enqueue)
-        if location:
-            self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.depth})
-        else:
-            self.driver.move({'Z':2})
+        self.move_to(location,enqueue)
+        self.move_updown('down',location,enqueue)
         extrusion = self.calculate_extrusion(volume)
         for i in xrange(repetitions):
-            self.driver.extrude(extrusion)
-            self.driver.delay(0.5)
-            self.driver.extrude(-extrusion)
-            self.driver.delay(0.5)
+            self.driver.extrude(extrusion,enqueue)
+            self.driver.delay(0.5,enqueue)
+            self.driver.extrude(-extrusion,enqueue)
+            self.driver.delay(0.5,enqueue)
+        self.driver.extrude(extrusion+1,enqueue)
+        self.driver.delay(0.5,enqueue)
+        self.driver.extrude(-(extrusion+1),enqueue)
         #moving back up
-        if location:
-            self.driver.move({'Z':-location.depth})
-        else:
-            self.driver.move({'Z':-2})
+        self.move_updown('up',location,enqueue)
 
     def blow_out(self,location = None,enqueue = True):   #Error in code below
         '''Blow_out will eject all liquid. Hence if there is liquid inside, do not use blow_out as it will result in inaccurate volume'''
-        if location:
-            self.driver.move(location,enqueue)
+        self.move_to(location,enqueue)
+        self.move_updown('down',location,enqueue)
         extrusion = self.calculate_extrusion(self.max_volume)+1
-        self.driver.extrude(extrusion)
-        self.driver.extrude(-extrusion)
+        self.driver.extrude(extrusion,enqueue)
+        self.driver.extrude(-extrusion,enqueue)
+        self.move_updown('up',location,enqueue)
 
-    def move_to(self,location,strategy = 'arc', enqueue= True):
+    def move_updown(self,direction,location = None,enqueue = True):
+        if direction == 'up':
+            direction = -1
+        elif direction == 'down':
+            direction = 1
+        else:
+            raise ValueError, 'Direction can only be up or down'
+        if location:
+            self.driver.move({'Z':direction*location.depth},enqueue)
+        else:
+            self.driver.move({'Z':direction*2},enqueue)
+
+    def move_to(self,location,enqueue= True,strategy = 'arc'):
         '''Move pipette to position of point of well'''
         self.driver.coordinate('relative',enqueue)
-        self.driver.move(location.coordinate,enqueue)       #strategy of movement not yet implemented
+        if location:
+            self.driver.move(location.coordinate,enqueue)       #strategy of movement not yet implemented
 
     def pick_up_tip(self,location = None,enqueue = True):
         self.driver.coordinate('relative',enqueue)
         if location:
             self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.depth})
-            self.driver.delay(0.5)
-            self.driver.move({'Z':-location.depth})
+            self.driver.move({'Z':location.depth},enqueue)
+            self.driver.delay(0.5,enqueue)
+            self.driver.move({'Z':-location.depth},enqueue)
         else:
-            self.driver.move({'Z':2})
-            self.driver.delay(0.5)
-            self.driver.move({'Z':-2})
+            self.driver.move({'Z':2},enqueue)
+            self.driver.delay(0.5,enqueue)
+            self.driver.move({'Z':-2},enqueue)
 
     def drop_tip(self,location = None, enqueue = True):
         self.driver.coordinate('relative',enqueue)
         if location:
             self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.depth})
-            self.driver.delay(0.5)
-            self.driver.move({'Z':-location.depth})
+            self.driver.move({'Z':location.depth},enqueue)
+            self.driver.delay(0.5,enqueue)
+            self.driver.move({'Z':-location.depth},enqueue)
         else:
-            self.driver.move({'Z':2})
-            self.driver.delay(0.5)
-            self.driver.move({'Z':-2})
+            self.driver.move({'Z':2},enqueue)
+            self.driver.delay(0.5,enqueue)
+            self.driver.move({'Z':-2},enqueue)
 
     def return_tip(self):
         '''This method has not been implemented, as only one tip rack is provided'''

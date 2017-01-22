@@ -71,4 +71,16 @@ class Well(object):
                 d[point.name] = point.coordinate
             return d
 
+        def __iter__(self):
+            return
+
+        def __getitem__(self,key):
+            for point in self.points:
+                if point.name == key:
+                    return point
+            if type(key) == int:
+                try:
+                    return self.points[key]
+                except Exception as e:
+                    raise e
 
