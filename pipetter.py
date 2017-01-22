@@ -370,12 +370,15 @@ class Pipette():
         else:
             raise ValueError, 'Direction can only be up or down'
         if location:
-            self.driver.move({'Z':location.coordinate+direction*location.depth*direction},enqueue)
+            self.position['Z'] = location.coordinate+direction*location.depth*direction
+            self.driver.move({'Z':self.position['Z']},enqueue)
         else:
             self.driver.coordinate('relative',enqueue)
             if direction:
+                self.position['Z'] += -2
                 self.driver.move({'Z':-2},enqueue)
             else:
+                self.position['Z'] +=  2            #can use this position tracking feature to get rid of relative absolute conversion
                 self.driver.move({'Z':2},enqueue)
             self.driver.coordinate('absolute',enqueue)
 
@@ -383,33 +386,44 @@ class Pipette():
         '''Move pipette to position of point of well'''
         #self.driver.coordinate('relative',enqueue)
         if location:
+            self.position = location.coordinate
             self.driver.move(location.coordinate,enqueue)       #strategy of movement not yet implemented
 
     def pick_up_tip(self,location = None,enqueue = True):
         #self.driver.coordinate('relative',enqueue)
         if location:
+            self.position = location.coordinate
             self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.coordinate['Z']+location.depth},enqueue)
+            self.position['Z'] += location.depth
+            self.driver.move({'Z':self.position['Z']},enqueue)
             self.driver.delay(0.5,enqueue)
+            self.position = location.coordinate
             self.driver.move({'Z':location.coordinate['Z']},enqueue)
         else:
             self.driver.coordinate('relative',enqueue)
+            self.position['Z'] += -2
             self.driver.move({'Z':-2},enqueue)
             self.driver.delay(0.5,enqueue)
+            self.position['Z'] += 2
             self.driver.move({'Z':2},enqueue)
             self.driver.coordinate('absolute',enqueue)
 
     def drop_tip(self,location = None, enqueue = True):
         #self.driver.coordinate('relative',enqueue)
         if location:
+            self.position = location.coordinate
             self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.coordinate['Z']+location.depth},enqueue)
+            self.position['Z'] += location.depth
+            self.driver.move({'Z':self.position['Z']},enqueue)
             self.driver.delay(0.5,enqueue)
+            self.position = location.coordinate
             self.driver.move({'Z':location.coordinate['Z']},enqueue)
         else:
             self.driver.coordinate('relative',enqueue)
+            self.position['Z'] += 2
             self.driver.move({'Z':2},enqueue)
             self.driver.delay(0.5,enqueue)
+            self.position['Z'] += -2
             self.driver.move({'Z':-2},enqueue)
             self.driver.coordinate('absolute',enqueue)
 
