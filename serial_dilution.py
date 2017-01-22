@@ -13,7 +13,6 @@ def main():
 
     #connect to robot
     r.connect('COM38')
-    r.home(False)
 
     #calibrate position and pipette
 

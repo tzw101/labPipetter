@@ -19,7 +19,8 @@ class Pipette():
             dispense_speed (int): The speed (in mm/minute) the plunger will move while dispensing (Default: None)
         '''
         self.driver = Driver()
-        self.position = {'X':0,'Y':0,'Z':0,'E':0}       #E(positive means pushing down. Negative retracts up)
+        self.position = {'X':0,'Y':0,'Z':230}
+        self.extrusion_distance = 0       #E(positive means pushing down. Negative retracts up)
         self.calibration_plunger = {'m': 0, 'c': 0}   #m and c are slope and gradient of calibration curve respectively
         self.name = name
         self.trash = trash_container
@@ -27,17 +28,18 @@ class Pipette():
         self.max_volume = max_volume
         self.aspirate_speed = aspirate_speed
         self.dispense_speed = dispense_speed
-        self.starting_postion = 180         # absolute z plane. will return to this z before homing
+        self.max_height = self.position['Z']               #used for calibration of height
+        self.starting_postion = 180         # default absolute z plane. will return to this z before homing
 
         #retrieve calibration data
-        if self.trash or self.tips:
-            l =[self.trash,self.tips]
-            for each in l:
-                calibration = Pipette.read_calibration_data(r'C:\Users\user\Desktop\calibration.data',each.name)
-                if calibration:
-                    each.coordinate = calibration['coordinate']
-                if 'depth' in calibration:
-                    each.coordinate = calibration['depth']
+        if self.name:
+            try:
+                data = Pipette.read_calibration_data(r'C:\Users\user\Desktop\plunger.data',self.name)
+                if data:
+                    self.calibration_plunger = data['plunger']
+                    self.starting_postion = data['starting_position']
+            except IOError:
+                print 'No plunger.data file found for this uncalibrated pipette'
 
     def set_speed(self,mode_speed_pair):
         '''Pass dictionary of mode and speed as key-value pair, eg: {'aspirate':300,'dispense':400}
@@ -78,18 +80,45 @@ class Pipette():
         extrusion = 5
         interval = 1
         data = {}
+
+        #calibrating starting location
+        while True:
+            d= {}
+            print 'Now calibrating starting location. Press J to move down, U to move up. q/Q to quit with saving. r/R to quit without saving.'
+            key = raw_input('Press key to move')
+            if key.lower() == 'u':
+                d = {'Z':1}
+            elif key.lower() == 'j':
+                d = {'Z':-1}
+            elif key.lower() == 'q':
+                break
+            elif key.lower() == 'r':
+                print 'Calibrating starting location is stopped'
+                return
+            else:
+                print 'Invalid key entered'
+            if d:
+                if key.isupper():
+                    d['Z'] *= 10
+                self.position['Z'] += d['Z']
+                self.driver.move({'Z':self.position['Z']},False)
+        if self.position['Z'] != 230:
+            self.starting_postion = self.position['Z']
+
         for i in xrange(number_of_tries):
-            to_quit = raw_input('Place DI water beneath pipette tip. Make sure pipette tip is immersed. Press any key to continue. Press q/Q to stop')
+            to_quit = raw_input('Now calibrating plunger. Press q/Q to stop. Place DI water beneath pipette tip. Make sure pipette tip is immersed. Press any key to continue.')
             if type(to_quit) == str and to_quit.lower() == 'q':      #check for user input here. Must be string
                 print 'Calibration stopped'
                 return
-            self.driver.extrude(-extrusion,False)
-            self.driver.delay(0.5,False)
             self.driver.extrude(extrusion,False)
+            self.driver.delay(0.5,False)
+            self.driver.extrude(-extrusion,False)
             raw_input('Place electronic balance beneath the tip to measure the mass of DI aspirated. Press any key to continue')
-            self.driver.extrude(-extrusion*1.2,False)
+            self.driver.extrude(extrusion,False)
+            self.driver.delay(0.5,False)
+            self.driver.extrude(-extrusion,False)
             mass = raw_input(' Type in the mass measured. Press q/Q to stop')
-            self.driver.extrude(extrusion*1.2,False)
+
             if mass.lower() == 'q':      #check for user input here. Must be string
                 print 'Calibration stopped'
                 return
@@ -114,6 +143,8 @@ class Pipette():
         if len(data) != number_of_tries:
             raise Exception, 'Something wrong happened during calibration'
 
+        print data      #for illustration purpose
+
         slope, intercept, r_value, p_value, std_err = stats.linregress(data.keys(),data.values())
         if r_value ** 2 < 0.90:
             to_quit = raw_input('The R2 value obtained is %f. Do you want to proceed? Press q/Q to quit. Rerun calibration afterwards.' % r_value)
@@ -125,7 +156,9 @@ class Pipette():
 
         if self.name:
             calibration = {}
-            calibration[self.name] = self.calibration_plunger
+            calibration[self.name] = {'plunger':self.calibration_plunger,'starting_position':180}
+            if self.position['Z'] != 230:
+                calibration[self.name]['starting_position'] = self.position['Z']
             Pipette.save_calibration_data(r'C:\Users\user\Desktop\plunger.data',calibration)
             print 'Calibration saved to C:\Users\user\Desktop\plunger.data'
 
@@ -155,8 +188,6 @@ class Pipette():
         #Initiate the driver, need to implement this later.
         #if self.driver == None:
         #    self.driver.connect()
-        self.driver.home(False)
-        self.driver.coordinate('relative',False)
 
         while True:
             d = {}
@@ -190,18 +221,14 @@ class Pipette():
                         self.position['Y'] += d[each]
                     if each == 'Z':
                         self.position['Z'] += d[each]
-                self.driver.move(d,False)
-
-        if location.coordinate == None:
-            location.coordinate = {'X':0,'Y':0,'Z':0}
+                self.driver.move(self.position,False)
 
         if type(location) == Well:
+            location.coordinate = self.position
             for point in location.points:
-                for axis in point.coordinate:
-                    point.coordinate[axis] += self.position[axis]       #check for bug. If position dictionary and point coordinate dict is different.
+                point.coordinate = {'X':point.coordinate['X']+self.position['X'], 'Y':point.coordinate['Y']+self.position['Y'], 'Z':self.position['Z']}     #check for bug. If position dictionary and point coordinate dict is different.
         elif type(location) == Point:
-            for axis in location.coordinate:
-                location.coordinate[axis] += self.position[axis]
+           location.coordinate = self.position
 
         #Now calibrating depth
         z = self.position['Z']
@@ -226,11 +253,14 @@ class Pipette():
                 if key.isupper():
                     d['Z'] *= 10
                 self.position['Z'] += d['Z']
-                self.driver.move(d,False)
+                self.driver.move(self.position,False)
 
-        depth = self.position['Z']-z        #check again
-        if depth < 0:
-            print 'Depth should be positive'
+        depth = self.position['Z']-z        #depth is negative #check again
+        if depth > 0:
+            print 'Depth should be negative'
+        if depth == 0:
+            raise RuntimeError,'Depth cannot be zero'
+
         location.depth = depth
 
         if self.name:
@@ -269,16 +299,6 @@ class Pipette():
             else:
                 return None
 
-    #may convert this into decorator
-    def get_calibration_data(self,path):
-        if self.calibration_plunger['m'] or self.calibration_plunger['c']:
-            return
-        with open(path) as calibration:
-            data = json.loads(calibration.read())
-            if self.name in data:
-                self.calibration_plunger = data[self.name]
-            else:
-                return          #try to implement message telling user that the pipette has not been calibrated
 
     def calculate_extrusion(self,volume):
         self.get_calibration_data(r'C:\Users\user\Desktop\plunger.data')
@@ -292,7 +312,6 @@ class Pipette():
         '''
         if volume == None:
             volume = self.max_volume
-        self.driver.coordinate('relative',enqueue)
         self.move_to(location,enqueue)
         self.move_updown('down',location,enqueue)       #default to 2mm. check whether this should be open as parameters.
 
@@ -306,7 +325,7 @@ class Pipette():
     def dispense(self,volume = None,location = None,rate = 1.0,enqueue = True):
         if volume == None:
             volume = self.max_volume
-        self.driver.coordinate('relative',enqueue)
+        #self.driver.coordinate('relative',enqueue)
         self.move_to(location,enqueue)
         self.move_updown('down',location,enqueue)
 
@@ -319,7 +338,7 @@ class Pipette():
         '''Mix volume of liquid'''
         if volume == None:
             volume = self.max_volume
-        self.driver.coordinate('relative',enqueue)
+        #self.driver.coordinate('relative',enqueue)
         self.move_to(location,enqueue)
         self.move_updown('down',location,enqueue)
         extrusion = self.calculate_extrusion(volume)
@@ -345,46 +364,82 @@ class Pipette():
 
     def move_updown(self,direction,location = None,enqueue = True):
         if direction == 'up':
-            direction = -1
+            direction = 0
         elif direction == 'down':
             direction = 1
         else:
             raise ValueError, 'Direction can only be up or down'
         if location:
-            self.driver.move({'Z':direction*location.depth},enqueue)
+            self.driver.move({'Z':location.coordinate+direction*location.depth*direction},enqueue)
         else:
-            self.driver.move({'Z':direction*2},enqueue)
+            self.driver.coordinate('relative',enqueue)
+            if direction:
+                self.driver.move({'Z':-2},enqueue)
+            else:
+                self.driver.move({'Z':2},enqueue)
+            self.driver.coordinate('absolute',enqueue)
 
     def move_to(self,location,enqueue= True,strategy = 'arc'):
         '''Move pipette to position of point of well'''
-        self.driver.coordinate('relative',enqueue)
+        #self.driver.coordinate('relative',enqueue)
         if location:
             self.driver.move(location.coordinate,enqueue)       #strategy of movement not yet implemented
 
     def pick_up_tip(self,location = None,enqueue = True):
-        self.driver.coordinate('relative',enqueue)
+        #self.driver.coordinate('relative',enqueue)
         if location:
             self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.depth},enqueue)
+            self.driver.move({'Z':location.coordinate['Z']+location.depth},enqueue)
             self.driver.delay(0.5,enqueue)
-            self.driver.move({'Z':-location.depth},enqueue)
+            self.driver.move({'Z':location.coordinate['Z']},enqueue)
         else:
-            self.driver.move({'Z':2},enqueue)
-            self.driver.delay(0.5,enqueue)
+            self.driver.coordinate('relative',enqueue)
             self.driver.move({'Z':-2},enqueue)
+            self.driver.delay(0.5,enqueue)
+            self.driver.move({'Z':2},enqueue)
+            self.driver.coordinate('absolute',enqueue)
 
     def drop_tip(self,location = None, enqueue = True):
-        self.driver.coordinate('relative',enqueue)
+        #self.driver.coordinate('relative',enqueue)
         if location:
             self.driver.move(location.coordinate,enqueue)
-            self.driver.move({'Z':location.depth},enqueue)
+            self.driver.move({'Z':location.coordinate['Z']+location.depth},enqueue)
             self.driver.delay(0.5,enqueue)
-            self.driver.move({'Z':-location.depth},enqueue)
+            self.driver.move({'Z':location.coordinate['Z']},enqueue)
         else:
+            self.driver.coordinate('relative',enqueue)
             self.driver.move({'Z':2},enqueue)
             self.driver.delay(0.5,enqueue)
             self.driver.move({'Z':-2},enqueue)
+            self.driver.coordinate('absolute',enqueue)
 
     def return_tip(self):
         '''This method has not been implemented, as only one tip rack is provided'''
         pass
+
+
+'''
+
+    #may convert this into decorator
+    def get_calibration_data(self,path):
+        if self.calibration_plunger['m'] or self.calibration_plunger['c']:
+            return
+        with open(path) as calibration:
+            data = json.loads(calibration.read())
+            if self.name in data:
+                self.calibration_plunger = data[self.name]
+            else:
+                return          #try to implement message telling user that the pipette has not been calibrated
+
+    if self.trash or self.tips:
+            l =[self.trash,self.tips]
+            try:
+                for each in l:
+                    calibration = Pipette.read_calibration_data(r'C:\Users\user\Desktop\calibration.data',each.name)
+                    if calibration:
+                        each.coordinate = calibration['coordinate']
+                    if 'depth' in calibration:
+                        each.depth = calibration['depth']
+            except IOError:
+                print 'No calibration.data file found'
+'''

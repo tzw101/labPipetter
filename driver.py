@@ -17,6 +17,7 @@ class Driver():
         '''p.printcore('COM3',115200) on Windows'''
         self.p = printcore(port,baud_rate)
         self.printing = self.p.printing
+        self.home(False)
 
     def run(self):
         '''Run commands in command queue'''
@@ -120,13 +121,16 @@ class Driver():
             self.send_command('G28')
 
     def extrude(self,distance, enqueue = True):
+        self.coordinate('relative',enqueue)
         string = 'E'+str(distance)
         if enqueue:
             self.command_queue.append('G1 '+string)
             self.command_name.append('Extrude by '+str(distance)+'mm')
+            self.coordinate('absolute',enqueue)
             return 'G1 '+string+'\n'
         else:
             self.send_command('G1 '+string)
+            self.coordinate('absolute',enqueue)
 
     def coordinate(self,mode = 'absolute',enqueue = True):
         '''Parameters

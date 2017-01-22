@@ -40,7 +40,7 @@ class Robot(object):
         print 'Robot forced stop'
 
     def home(self):
-        self.driver.home()
+        self.driver.home(False)
 
     def status(self):
         if self.driver.printing:
@@ -75,6 +75,7 @@ class Robot(object):
         self.is_connected = False
 
     def run(self):
+        self.driver.move({'Z':self.instrument.starting_position},False)
         self.driver.run()
 
 
