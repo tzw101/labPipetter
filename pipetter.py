@@ -3,6 +3,7 @@ from deck import Point,Well
 import json
 from scipy import stats
 import time
+from pipetteIO import *
 
 class Pipette():
 
@@ -34,7 +35,7 @@ class Pipette():
         #retrieve calibration data
         if self.name:
             try:
-                data = Pipette.read_calibration_data(r'C:\Users\user\Desktop\plunger.data',self.name)
+                data = read_calibration_data(r'C:\Users\user\Desktop\plunger.data',self.name)
                 if data:
                     self.calibration_plunger = data['plunger']
                     self.starting_postion = data['starting_position']
@@ -159,7 +160,7 @@ class Pipette():
             calibration[self.name] = {'plunger':self.calibration_plunger,'starting_position':180}
             if self.position['Z'] != 230:
                 calibration[self.name]['starting_position'] = self.position['Z']
-            Pipette.save_calibration_data(r'C:\Users\user\Desktop\plunger.data',calibration)
+            save_calibration_data(r'C:\Users\user\Desktop\plunger.data',calibration)
             print 'Calibration saved to C:\Users\user\Desktop\plunger.data'
 
 
@@ -268,36 +269,8 @@ class Pipette():
             #pip = {}
             coordinate[location.name] = {'coordinate':location.coordinate,'depth':location.depth}
             #pip[self.name]={'Position':coordinate}
-            Pipette.save_calibration_data(r'C:\Users\user\Desktop\calibration.data',coordinate)
+            save_calibration_data(r'C:\Users\user\Desktop\calibration.data',coordinate)
             print 'Calibration saved to C:\Users\user\Desktop\calibration.data'
-
-    @staticmethod
-    def save_calibration_data(path,coordinate):
-        #check this section again. This may need quite some buffer as the calibration data is deleted and recreated during every calibration
-        #need to have error checking code
-        try:
-            with open(path,'r') as calibration:
-                old_data = calibration.read()
-                new_data = json.loads(old_data)
-                for each in coordinate:
-                    if each in new_data:
-                        del new_data[each]
-                new_data.append(coordinate)
-        except IOError:
-            new_data = coordinate
-
-        with open(path,'w') as calibration:
-            s = json.dumps(new_data)
-            calibration.write(s)
-
-    @staticmethod
-    def read_calibration_data(path,name):
-        with open(path,'r') as calibration:
-            data = json.loads(calibration.read())
-            if name in data:
-                return data[name]
-            else:
-                return None
 
 
     def calculate_extrusion(self,volume):
@@ -456,4 +429,33 @@ class Pipette():
                         each.depth = calibration['depth']
             except IOError:
                 print 'No calibration.data file found'
+
+ @staticmethod
+    def save_calibration_data(path,coordinate):
+        #check this section again. This may need quite some buffer as the calibration data is deleted and recreated during every calibration
+        #need to have error checking code
+        try:
+            with open(path,'r') as calibration:
+                old_data = calibration.read()
+                new_data = json.loads(old_data)
+                for each in coordinate:
+                    if each in new_data:
+                        del new_data[each]
+                new_data.append(coordinate)
+        except IOError:
+            new_data = coordinate
+
+        with open(path,'w') as calibration:
+            s = json.dumps(new_data)
+            calibration.write(s)
+
+    @staticmethod
+    def read_calibration_data(path,name):
+        with open(path,'r') as calibration:
+            data = json.loads(calibration.read())
+            if name in data:
+                return data[name]
+            else:
+                return None
+
 '''

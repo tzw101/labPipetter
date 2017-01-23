@@ -1,4 +1,4 @@
-from pipetter import Pipette
+from pipetteIO import *
 
 class Point(object):
 
@@ -19,7 +19,7 @@ class Point(object):
 
         if self.name:
             try:
-                calibration = Pipette.read_calibration_data(r'C:\Users\user\Desktop\calibration.data',self.name)
+                calibration = read_calibration_data(r'C:\Users\user\Desktop\calibration.data',self.name)
                 if calibration:
                     self.coordinate = calibration['coordinate']
                 if 'depth' in calibration:
@@ -29,7 +29,7 @@ class Point(object):
 
 class Well(object):
 
-    def __init__(self,name,width,length, coordinate = None,spacing,number_of_rows = 8,number_of_columns = 12,depth = None):
+    def __init__(self,name,width,length, spacing,coordinate = None,number_of_rows = 8,number_of_columns = 12,depth = None):
         '''
         Only rectangular well is supported.
         Well origin is at A1 corner.
@@ -65,7 +65,7 @@ class Well(object):
 
         if self.name:
             try:
-                calibration = Pipette.read_calibration_data(r'C:\Users\user\Desktop\calibration.data',self.name)
+                calibration = read_calibration_data(r'C:\Users\user\Desktop\calibration.data',self.name)
                 if calibration:
                     self.coordinate = calibration['coordinate']
                 if 'depth' in calibration:
