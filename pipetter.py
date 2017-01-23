@@ -225,16 +225,18 @@ class Pipette():
                 self.driver.move(self.position,False)
 
         if type(location) == Well:
-            location.coordinate = self.position
+            location.coordinate = dict(self.position)
             for point in location.points:
                 point.coordinate = {'X':point.coordinate['X']+self.position['X'], 'Y':point.coordinate['Y']+self.position['Y'], 'Z':self.position['Z']}     #check for bug. If position dictionary and point coordinate dict is different.
         elif type(location) == Point:
-           location.coordinate = self.position
+           location.coordinate = dict(self.position)
+           print self.position
+           print location.coordinate
 
         #Now calibrating depth
         z = self.position['Z']
+        print 'Now calibrating depth of location. Press J to move down, U to move up. q/Q to quit with saving. r/R to quit without saving.'
         while True:
-            print 'Now calibrating depth of location. Press J to move down, U to move up. q/Q to quit with saving. r/R to quit without saving.'
             key = raw_input('Press key to move')
             if key.lower() == 'u':
                 d = {'Z':1}
@@ -264,6 +266,10 @@ class Pipette():
 
         location.depth = depth
 
+        #return to original position
+        self.position['Z'] = z
+        self.driver.move({'Z':z},False)
+
         if self.name:
             coordinate = {}
             #pip = {}
@@ -274,7 +280,20 @@ class Pipette():
 
 
     def calculate_extrusion(self,volume):
-        self.get_calibration_data(r'C:\Users\user\Desktop\plunger.data')
+        if self.calibration_plunger == {'m': 0, 'c': 0}:
+            #This section will never get executed. Do you really wanna implement this?
+            if self.name:
+                try:
+                    data = read_calibration_data(r'C:\Users\user\Desktop\plunger.data',self.name)
+                    if data:
+                        self.calibration_plunger = data['plunger']
+                        self.starting_postion = data['starting_position']
+                except IOError:
+                    print 'No plunger.data file found for this uncalibrated pipette. Assuming 1mm extrusion is 1 microliter'
+                    self.calibration_plunger = {'m': 1, 'c': 0}
+            else:
+                print 'No plunger.data file found for this pipette. Make sure pipette is named. Assuming 1mm extrusion is 1 microliter'
+                self.calibration_plunger = {'m': 1, 'c': 0}
         return (volume-self.calibration_plunger['c'])/self.calibration_plunger['m']
 
     def aspirate(self,volume = None,location = None,rate = 1.0,enqueue = True):  #havent moved up
@@ -289,9 +308,11 @@ class Pipette():
         self.move_updown('down',location,enqueue)       #default to 2mm. check whether this should be open as parameters.
 
         extrusion = self.calculate_extrusion(volume)
+        self.driver.delay(0.5,enqueue)
         self.driver.extrude(extrusion,enqueue)
         self.driver.delay(0.5,enqueue)
         self.driver.extrude(-extrusion,enqueue)
+        self.driver.delay(0.5,enqueue)
         #moving back up
         self.move_updown('up',location,enqueue)
 
@@ -303,9 +324,12 @@ class Pipette():
         self.move_updown('down',location,enqueue)
 
         extrusion = self.calculate_extrusion(volume)
-        self.driver.extrude(-extrusion,enqueue)
-
+        self.driver.delay(0.5,enqueue)
+        self.driver.extrude(extrusion,enqueue)
+        self.driver.delay(0.5,enqueue)
         self.move_updown('up',location,enqueue)
+        self.driver.delay(0.5,enqueue)
+        self.driver.extrude(-extrusion,enqueue)
 
     def mix(self,repetitions = 3, volume = None, location = None, rate = 1.0,enqueue = True ):
         '''Mix volume of liquid'''
@@ -314,6 +338,7 @@ class Pipette():
         #self.driver.coordinate('relative',enqueue)
         self.move_to(location,enqueue)
         self.move_updown('down',location,enqueue)
+        self.driver.delay(0.5,enqueue)
         extrusion = self.calculate_extrusion(volume)
         for i in xrange(repetitions):
             self.driver.extrude(extrusion,enqueue)
@@ -322,18 +347,24 @@ class Pipette():
             self.driver.delay(0.5,enqueue)
         self.driver.extrude(extrusion+1,enqueue)
         self.driver.delay(0.5,enqueue)
-        self.driver.extrude(-(extrusion+1),enqueue)
+
         #moving back up
         self.move_updown('up',location,enqueue)
+        self.driver.delay(0.5,enqueue)
+        self.driver.extrude(-(extrusion+1),enqueue)
 
     def blow_out(self,location = None,enqueue = True):   #Error in code below
         '''Blow_out will eject all liquid. Hence if there is liquid inside, do not use blow_out as it will result in inaccurate volume'''
         self.move_to(location,enqueue)
         self.move_updown('down',location,enqueue)
+        self.driver.delay(0.5,enqueue)
         extrusion = self.calculate_extrusion(self.max_volume)+1
         self.driver.extrude(extrusion,enqueue)
-        self.driver.extrude(-extrusion,enqueue)
+        self.driver.delay(0.5,enqueue)
+
         self.move_updown('up',location,enqueue)
+        self.driver.delay(0.5,enqueue)
+        self.driver.extrude(-extrusion,enqueue)
 
     def move_updown(self,direction,location = None,enqueue = True):
         if direction == 'up':
@@ -343,7 +374,7 @@ class Pipette():
         else:
             raise ValueError, 'Direction can only be up or down'
         if location:
-            self.position['Z'] = location.coordinate+direction*location.depth*direction
+            self.position['Z'] = location.coordinate['Z']+direction*location.depth      #it will only move up and down and will not check x and y.
             self.driver.move({'Z':self.position['Z']},enqueue)
         else:
             self.driver.coordinate('relative',enqueue)
@@ -359,18 +390,18 @@ class Pipette():
         '''Move pipette to position of point of well'''
         #self.driver.coordinate('relative',enqueue)
         if location:
-            self.position = location.coordinate
+            self.position = dict(location.coordinate)
             self.driver.move(location.coordinate,enqueue)       #strategy of movement not yet implemented
 
     def pick_up_tip(self,location = None,enqueue = True):
         #self.driver.coordinate('relative',enqueue)
         if location:
-            self.position = location.coordinate
+            self.position = dict(location.coordinate)
             self.driver.move(location.coordinate,enqueue)
             self.position['Z'] += location.depth
             self.driver.move({'Z':self.position['Z']},enqueue)
             self.driver.delay(0.5,enqueue)
-            self.position = location.coordinate
+            self.position = dict(location.coordinate)
             self.driver.move({'Z':location.coordinate['Z']},enqueue)
         else:
             self.driver.coordinate('relative',enqueue)
@@ -384,12 +415,12 @@ class Pipette():
     def drop_tip(self,location = None, enqueue = True):
         #self.driver.coordinate('relative',enqueue)
         if location:
-            self.position = location.coordinate
+            self.position = dict(location.coordinate)
             self.driver.move(location.coordinate,enqueue)
             self.position['Z'] += location.depth
             self.driver.move({'Z':self.position['Z']},enqueue)
             self.driver.delay(0.5,enqueue)
-            self.position = location.coordinate
+            self.position = dict(location.coordinate)
             self.driver.move({'Z':location.coordinate['Z']},enqueue)
         else:
             self.driver.coordinate('relative',enqueue)

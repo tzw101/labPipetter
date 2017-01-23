@@ -99,7 +99,7 @@ class Driver():
             if axis not in ['X','Y','Z']:
                 raise Exception, 'Only x, y and z axis are allowed'
             string += axis
-            if type(distance) in [int,str]:
+            if type(distance) in [int,float,str]:
                 string += str(distance)
                 string += ' '
             else:

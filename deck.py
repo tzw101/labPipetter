@@ -7,7 +7,7 @@ class Point(object):
             Coordinate (dictionary): x,y coordinate of the center of point (default: None)
             Solution (string): content of the container (default: None)
             Depth (float): distance from top to bottom of the point (default None)'''
-        if coordinate and type(coordinate) == dict and len(coordinate) == 2:
+        if coordinate and type(coordinate) == dict:
             self.coordinate = coordinate
         elif coordinate:
             raise TypeError, 'Wrong input argument format'
@@ -22,8 +22,8 @@ class Point(object):
                 calibration = read_calibration_data(r'C:\Users\user\Desktop\calibration.data',self.name)
                 if calibration:
                     self.coordinate = calibration['coordinate']
-                if 'depth' in calibration:
-                    self.depth = calibration['depth']
+                    if 'depth' in calibration:
+                        self.depth = calibration['depth']
             except IOError:
                 print 'No calibration.data file found'
 
@@ -68,8 +68,8 @@ class Well(object):
                 calibration = read_calibration_data(r'C:\Users\user\Desktop\calibration.data',self.name)
                 if calibration:
                     self.coordinate = calibration['coordinate']
-                if 'depth' in calibration:
-                    self.depth = calibration['depth']
+                    if 'depth' in calibration:
+                        self.depth = calibration['depth']
             except IOError:
                 print 'No calibration.data file found'
 
@@ -86,28 +86,28 @@ class Well(object):
                 x += spacing
             x = 0
             y += spacing
-
+    '''
         if self.points[number_of_columns-1].coordinate['X'] > length:
             raise ValueError, 'Length of well is too short to accomodate this number of wells'
         elif self.points[(number_of_rows-1)*number_of_columns].coordinate['Y'] > width:
             raise ValueError, 'Width of well is too short to accomodate this number of wells'
+    '''
+    def dict_of_coordinates(self):
+        d = {}
+        for point in self.points:
+            d[point.name] = point.coordinate
+        return d
 
-        def dict_of_coordinates(self):
-            d = {}
-            for point in self.points:
-                d[point.name] = point.coordinate
-            return d
+    def __iter__(self):
+        return
 
-        def __iter__(self):
-            return
-
-        def __getitem__(self,key):
-            for point in self.points:
-                if point.name == key:
-                    return point
-            if type(key) == int:
-                try:
-                    return self.points[key]
-                except Exception as e:
-                    raise e
+    def __getitem__(self,key):
+        for point in self.points:
+            if point.name == key:
+                return point
+        if type(key) == int:
+            try:
+                return self.points[key]
+            except Exception as e:
+                raise e
 
