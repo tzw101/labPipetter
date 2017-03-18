@@ -60,10 +60,11 @@ class Pipette():
 
     def home(self,enqueue = True):
         '''This function will only home the position of x and y of pipette'''
-        self.driver.move({'X':0,'Y':0},enqueue)
+        self.driver.home(enqueue)
         if enqueue == False:
             self.position['X'] = 0
             self.position['Y'] = 0
+            self.position['Z'] = 0
 
     def calibrate(self,max_volume = 200, number_of_tries = 5):
         '''

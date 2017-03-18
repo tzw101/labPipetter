@@ -121,6 +121,8 @@ class Driver():
             self.send_command('G28')
 
     def extrude(self,distance, enqueue = True):
+        '''This method has been deprecated. Use rotate() instead using angle instead of distance '''
+        return self.rotate(distance,enqueue)
         self.coordinate('relative',enqueue)
         string = 'E'+str(distance)
         if enqueue:
@@ -131,6 +133,15 @@ class Driver():
         else:
             self.send_command('G1 '+string)
             self.coordinate('absolute',enqueue)
+
+    def rotate(self,angle,enqueue = True):
+        string = 'S'+str(angle) #absolute or relative positioning
+        if enqueue:
+            self.command_queue.append('M280 P0 '+string)     #change the servo number if needed
+            self.command_name.append('Rotate by '+str(angle)+'degree')
+            return 'M280 P0 '+string+'\n'
+        else:
+            self.send_command('M280 P0 '+string)
 
     def coordinate(self,mode = 'absolute',enqueue = True):
         '''Parameters

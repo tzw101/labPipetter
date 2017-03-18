@@ -81,7 +81,7 @@ class Well(object):
 
         for row in xrange(number_of_rows):
             for column in xrange(number_of_columns):
-                point = Point(alphabet[row]+str(column),{'X':self.coordinate['X']+x,'Y':self.coordinate['Y']+y,'Z':self.coordinate['Z']},depth = depth)
+                point = Point(alphabet[row]+str(column),{'X':self.coordinate['X']+x,'Y':self.coordinate['Y']+y,'Z':self.coordinate['Z']},depth = self.depth)
                 self.points.append(point)
                 x += spacing
             x = 0
