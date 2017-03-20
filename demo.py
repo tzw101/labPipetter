@@ -11,7 +11,7 @@ def demo_movement():
     except:
         print 'Error again when connect'
     d.home()
-    d.command_queue.append('M220 S150')
+    d.command_queue.append('M220 S400')
     d.move({'Z':150})
     for i in xrange(20):
         d.move({'X':20})

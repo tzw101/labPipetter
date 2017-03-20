@@ -1,5 +1,7 @@
 from driver import Driver
 from pipetter import Pipette
+import time
+
 class Robot(object):
 
     def __init__(self,instrument = None):
@@ -40,22 +42,24 @@ class Robot(object):
         print 'Robot forced stop'
 
     def home(self):
+        if self.instrument:
+            self.instrument.home(False)
         self.driver.home(False)
 
     def status(self):
-        if self.driver.printing:
+        if self.driver.printing():
             return 'Printing...'
         else:
             return 'Idle'
 
     def pause(self):
-        if self.pause():
+        if self.driver.pause():
             print 'Paused'
         else:
             print 'Device is not pipetting'
 
     def resume(self):
-        if self.resume():
+        if self.driver.resume():
             print 'Resumed'
         else:
             print 'Device is already running'
@@ -74,9 +78,22 @@ class Robot(object):
         self.driver = None
         self.is_connected = False
 
-    def run(self):
+    def run(self,hang = False):
+        self.driver.home(False)
         self.driver.move({'Z':self.instrument.starting_position},False)
         self.driver.run()
+        if hang:
+            for i in xrange(300):
+                if self.driver.printing():
+                    time.sleep(1)
+                else:
+                    break
 
-
+    def set_speed(self,speed):
+        '''
+        Speed - percentage of current speed. If double the current speed, type 200. Maximum is 300
+        '''
+        if int(speed) > 300:
+            raise RuntimeError('Maximum speed is 300. Too high will cause excessive vibration')
+        self.driver.set_speed(speed,False)
 
