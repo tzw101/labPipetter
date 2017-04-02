@@ -159,8 +159,12 @@ class Driver():
             self.coordinate('relative',enqueue)
 
     def extrude(self,distance, enqueue = True):
-        '''This method has been deprecated. Use rotate() instead using angle instead of distance '''
-        return self.rotate(distance,enqueue)
+        '''This method has been deprecated. Use rotate() instead using angle instead of distance. Currently the angle is fixed to 90 degree which is max volume
+        '''
+        if distance < 0:
+            return self.rotate(0,enqueue = enqueue)
+        else:
+            return self.rotate(90,enqueue = enqueue)
         self.coordinate('relative',enqueue)
         string = 'E'+str(distance)
         if enqueue:

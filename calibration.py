@@ -9,7 +9,7 @@
 
 import wx
 import wx.xrc
-
+import os
 ###########################################################################
 ## Class MainFrame
 ###########################################################################
@@ -23,7 +23,7 @@ class MainFrame ( wx.Frame ):
 
 		bSizer3 = wx.BoxSizer( wx.VERTICAL )
 
-		self.image = wx.StaticBitmap( self, wx.ID_ANY, wx.Bitmap( u"C:\\Users\\user\\Desktop\\arrow.png", wx.BITMAP_TYPE_ANY ), wx.DefaultPosition, wx.DefaultSize, 0 )
+		self.image = wx.StaticBitmap( self, wx.ID_ANY, wx.Bitmap( os.getcwd()+"\\arrow.png", wx.BITMAP_TYPE_ANY ), wx.DefaultPosition, wx.DefaultSize, 0 )
 		bSizer3.Add( self.image, 1, wx.ALL|wx.EXPAND, 5 )
 
 		gSizer2 = wx.GridSizer( 0, 2, 0, 0 )

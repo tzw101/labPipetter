@@ -6,6 +6,7 @@ import time
 from pipetteIO import *
 import wx
 from calibrationClass import *
+import os
 
 class Pipette():
 
@@ -38,7 +39,7 @@ class Pipette():
         #retrieve calibration data
         if self.name:
             try:
-                data = read_calibration_data(r'C:\Users\user\Desktop\plunger.data',self.name)
+                data = read_calibration_data(os.getcwd()+'\\plunger.data',self.name)
                 if data:
                     self.calibration_plunger = data['plunger']
                     self.starting_position = data['starting_position']
@@ -194,7 +195,7 @@ class Pipette():
         frame = CalibFrame(None,self.driver,True)
         frame.Show(True)
         app.MainLoop()
-        app = None      #This is to ensure app is garbage collected. Is it useful? Check again.
+
         depth = self.driver.position['Z']-z        #depth is negative #check again
         if depth > 0:
             print 'Depth should be negative'
@@ -206,19 +207,53 @@ class Pipette():
         #return to original position
         self.driver.move({'Z':z},False)
 
+        if type(location) == Well:
+            location.spacing['column'] = []
+            for i in xrange(2):
+                #calibrate column (column 6 and 11)
+                initial_position = dict(self.driver.position)
+                frame = CalibFrame(None,self.driver)
+                frame.Show(True)
+                app.MainLoop()
+
+                spacing = (self.driver.position['X'] - initial_position['X'])/5.0
+                location.spacing['column'] += [spacing] * 5
+            location.spacing['column'] += [spacing]
+
+            self.driver.move(location.coordinate,False)       #check for bug
+            location.spacing['row'] = []
+            for i in xrange(2):
+                #calibrate row (row D and G)
+                initial_position = dict(self.driver.position)
+                frame = CalibFrame(None,self.driver)
+                frame.Show(True)
+                app.MainLoop()
+
+                spacing = (self.driver.position['Y'] - initial_position['Y'])/3.0
+                location.spacing['row'] += [spacing] * 3
+            location.spacing['row'] += [spacing]*2
+            self.driver.move(location.coordinate,False)
+
+        location.is_calibrated = True
         if self.name:
             coordinate = {}
-            coordinate[location.name] = {'coordinate':location.coordinate,'depth':location.depth}
-            save_calibration_data(r'C:\Users\user\Desktop\calibration.data',coordinate)
-            print 'Calibration saved to C:\Users\user\Desktop\calibration.data'
+            if type(location) == Well:
+                coordinate[location.name] = {'coordinate':location.coordinate,'depth':location.depth,'spacing':location.spacing}
+            else:
+                coordinate[location.name] = {'coordinate':location.coordinate,'depth':location.depth}
 
+            save_calibration_data(os.getcwd()+'\\calibration.data',coordinate)
+            print 'Calibration saved to '+ os.getcwd()+'\\calibration.data'
+
+        app = None      #This is to ensure app is garbage collected. Is it useful? Check again.
 
     def calculate_extrusion(self,volume):
+        '''This method is deprecated'''
         if self.calibration_plunger == {'m': 0, 'c': 0}:
             #This section will never get executed. Do you really wanna implement this?
             if self.name:
                 try:
-                    data = read_calibration_data(r'C:\Users\user\Desktop\plunger.data',self.name)
+                    data = read_calibration_data(os.getcwd()+'\\plunger.data',self.name)
                     if data:
                         self.calibration_plunger = data['plunger']
                         self.starting_position = data['starting_position']
@@ -266,7 +301,7 @@ class Pipette():
         self.driver.extrude(-extrusion,enqueue)
 
     def mix(self,repetitions = 3, volume = None, location = None, rate = 1.0,enqueue = True ):
-        '''Mix volume of liquid'''
+        '''Mix volume of liquid. Error when mixing more than once, will have error'''
         if volume == None:
             volume = self.max_volume
         #self.driver.coordinate('relative',enqueue)
